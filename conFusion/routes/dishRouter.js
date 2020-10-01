@@ -21,29 +21,38 @@ dishRouter.route('/')
             }, (err) => next(err))
             .catch((err) => next(err));
     })
-    .post(authenticate.verifyUser, (req, res, next) => {
-        Dishes.create(req.body)
-            .then((dish) => {
-                console.log('Dish Created ', dish);
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'application/json');
-                res.json(dish);
-            }, (err) => next(err))
-            .catch((err) => next(err));
-    })
-    .put(authenticate.verifyUser, (req, res, next) => {
-        res.statusCode = 403;
-        res.end('PUT operation not supported on /dishes');
-    })
-    .delete(authenticate.verifyUser, (req, res, next) => {
-        Dishes.remove({})
-            .then((resp) => {
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'application/json');
-                res.json(resp);
-            }, (err) => next(err))
-            .catch((err) => next(err));
-    });
+    .post(
+        authenticate.verifyUser,
+        (req, res, next) => { authenticate.verifyAdmin(req, next) },
+        (req, res, next) => {
+            //authenticate.verifyAdmin(req, next);
+            Dishes.create(req.body)
+                .then((dish) => {
+                    console.log('Dish Created ', dish);
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.json(dish);
+                }, (err) => next(err))
+                .catch((err) => next(err));
+        })
+    .put(authenticate.verifyUser,
+        (req, res, next) => { authenticate.verifyAdmin(req, next) },
+        (req, res, next) => {
+            res.statusCode = 403;
+            res.end('PUT operation not supported on /dishes');
+        })
+    .delete(
+        authenticate.verifyUser,
+        (req, res, next) => { authenticate.verifyAdmin(req, next) },
+        (req, res, next) => {
+            Dishes.remove({})
+                .then((resp) => {
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.json(resp);
+                }, (err) => next(err))
+                .catch((err) => next(err));
+        });
 
 dishRouter.route('/:dishId')
     .get((req, res, next) => {
@@ -56,30 +65,36 @@ dishRouter.route('/:dishId')
             }, (err) => next(err))
             .catch((err) => next(err));
     })
-    .post(authenticate.verifyUser, (req, res, next) => {
-        res.statusCode = 403;
-        res.end('POST operation not supported on /dishes/' + req.params.dishId);
-    })
-    .put(authenticate.verifyUser, (req, res, next) => {
-        Dishes.findByIdAndUpdate(req.params.dishId, {
-            $set: req.body
-        }, { new: true })
-            .then((dish) => {
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'application/json');
-                res.json(dish);
-            }, (err) => next(err))
-            .catch((err) => next(err));
-    })
-    .delete(authenticate.verifyUser, (req, res, next) => {
-        Dishes.findByIdAndRemove(req.params.dishId)
-            .then((resp) => {
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'application/json');
-                res.json(resp);
-            }, (err) => next(err))
-            .catch((err) => next(err));
-    });
+    .post(authenticate.verifyUser,
+        (req, res, next) => { authenticate.verifyAdmin(req, next) },
+        (req, res, next) => {
+            res.statusCode = 403;
+            res.end('POST operation not supported on /dishes/' + req.params.dishId);
+        })
+    .put(authenticate.verifyUser,
+        (req, res, next) => { authenticate.verifyAdmin(req, next) },
+        (req, res, next) => {
+            Dishes.findByIdAndUpdate(req.params.dishId, {
+                $set: req.body
+            }, { new: true })
+                .then((dish) => {
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.json(dish);
+                }, (err) => next(err))
+                .catch((err) => next(err));
+        })
+    .delete(authenticate.verifyUser,
+        (req, res, next) => { authenticate.verifyAdmin(req, next) },
+        (req, res, next) => {
+            Dishes.findByIdAndRemove(req.params.dishId)
+                .then((resp) => {
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.json(resp);
+                }, (err) => next(err))
+                .catch((err) => next(err));
+        });
 dishRouter.route('/:dishId/comments')
     .get((req, res, next) => {
         Dishes.findById(req.params.dishId)
@@ -180,9 +195,15 @@ dishRouter.route('/:dishId/comments/:commentId')
         res.end('POST operation not supported on /dishes/' + req.params.dishId
             + '/comments/' + req.params.commentId);
     })
-    .put(cors.corsWithOptions, authenticate.verifyUser, (req, res, next) => {
+    .put(authenticate.verifyUser, (req, res, next) => {
         Dishes.findById(req.params.dishId)
             .then((dish) => {
+                //Assigment 3: Task 4
+                if (req.user._id != dish.comments.id(req.params.commentId).author._id) {
+                    err = new Error('This is not your comment!');
+                    err.status = 403;
+                    return next(err);
+                }
                 if (dish != null && dish.comments.id(req.params.commentId) != null) {
                     if (req.body.rating) {
                         dish.comments.id(req.params.commentId).rating = req.body.rating;
@@ -214,9 +235,15 @@ dishRouter.route('/:dishId/comments/:commentId')
             }, (err) => next(err))
             .catch((err) => next(err));
     })
-    .delete(cors.corsWithOptions, authenticate.verifyUser, (req, res, next) => {
+    .delete(authenticate.verifyUser, (req, res, next) => {
         Dishes.findById(req.params.dishId)
             .then((dish) => {
+                //Assigment 3: Task 4
+                if (req.user._id != dish.comments.id(req.params.commentId).author._id) {
+                    err = new Error('This is not your comment!');
+                    err.status = 403;
+                    return next(err);
+                }
                 if (dish != null && dish.comments.id(req.params.commentId) != null) {
 
                     dish.comments.id(req.params.commentId).remove();

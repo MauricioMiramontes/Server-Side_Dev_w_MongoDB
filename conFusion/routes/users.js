@@ -8,10 +8,19 @@ router.use(bodyParser.json());
 var passport = require('passport');
 var authenticate = require('../authenticate');
 
-/* GET users listing. */
-router.get('/', function (req, res, next) {
-  res.send('respond with a resource');
-});
+//Assigment 3: Task 3
+router.get('/',
+  authenticate.verifyUser,
+  (req, res, next) => { authenticate.verifyAdmin(req, next) },
+  (req, res, next) => {
+    User.find({})
+      .then((User) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(User);
+      }, (err) => next(err))
+      .catch((err) => next(err));
+  });
 
 router.post('/signup', (req, res, next) => {
   User.register(new User({ username: req.body.username }),
